@@ -2,9 +2,14 @@ package entity
 
 import "errors"
 
+const (
+	REJECTED = "rejected"
+	APPROVED = "approved"
+)
+
 type Transaction struct {
 	ID           string
-	AccountId    string
+	AccountID    string
 	Amount       float64
 	CreditCard   CreditCard
 	Status       string
