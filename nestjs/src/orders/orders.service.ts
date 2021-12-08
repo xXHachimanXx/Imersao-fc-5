@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { Producer } from '@nestjs/microservices/external/kafka.interface';
 import { InjectModel } from '@nestjs/sequelize';
 import { EmptyResultError } from 'sequelize';
 import { AccountStorageService } from 'src/accounts/account-storage/account-storage.service';
@@ -12,14 +13,29 @@ export class OrdersService {
   constructor(
     @InjectModel(Order)
     private orderModel: typeof Order,
-    private accountStorageService: AccountStorageService
+    private accountStorageService: AccountStorageService,
+    @Inject('KAFKA_PRODUCER')
+    private kafkaProducer: Producer
   ) { }
 
-  create(createOrderDto: CreateOrderDto) {
-    return this.orderModel.create({
+  async create(createOrderDto: CreateOrderDto) {
+    const order = await this.orderModel.create({
       ...createOrderDto,
       account_id: this.accountStorageService.account.id
     });
+
+    this.kafkaProducer.send({
+      topic: 'transactions',
+      messages: [
+        {
+          key: 'transactions', value: JSON.stringify({
+            ...createOrderDto,
+            ...order,
+          })
+        }
+      ]
+    });
+    return order;
   }
 
   findAll() {
@@ -30,25 +46,30 @@ export class OrdersService {
     });
   }
 
-  findOne(id: string) {
+  findOneUsingAccount(id: string) {
     return this.orderModel.findOne({
       where: {
         id,
-        account_id: this.accountStorageService.account.id
+        account_id: this.accountStorageService.account.id,
       },
-      rejectOnEmpty: new EmptyResultError(`Order with ID ${id} not found`)
+      rejectOnEmpty: new EmptyResultError(`Order with ID ${id} not found`),
     });
   }
 
-  async update(id: string, updateOrderDto: UpdateOrderDto) {
-    const order = await this.findOne(id);
+  findOne(id: string) {
+    return this.orderModel.findByPk(id);
+  }
 
+  async update(id: string, updateOrderDto: UpdateOrderDto) {
+    const account = this.accountStorageService.account;
+    const order = await (account
+      ? this.findOneUsingAccount(id)
+      : this.findOne(id));
     return order.update(updateOrderDto);
   }
 
   async remove(id: string) {
-    const order = await this.findOne(id);
-
+    const order = await this.findOneUsingAccount(id);
     return order.destroy();
   }
 }
