@@ -17,7 +17,17 @@ const OrdersPage = (props: any) => {
 
   const router = useRouter();
   const { id } = router.query;
-  const { data, error } = useSWR(`http://localhost:3001/api/orders/${id}`, fetcher);
+  const { data, error } = useSWR(`${process.env.NEXT_PUBLIC_API_HOST}/orders/${id}`,
+    fetcher,
+    {
+      onError: (error) => {
+        console.log(error);
+        if (error.response.status === 401 || error.response.status === 403) {
+          Router.push('/login');
+        }
+      },
+    }
+  );
 
   return data ? (
     <div style={{ height: 400, width: "100%" }}>

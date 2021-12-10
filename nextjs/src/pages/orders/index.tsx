@@ -8,7 +8,10 @@ import { DataGrid, GridColumns } from '@mui/x-data-grid';
 import { OrderStatus, OrderStatusTranslate } from '../../utils/models';
 import { withIronSessionSsr } from "iron-session/next";
 import ironConfig from '../../utils/iron-config';
+import useSWR from "swr";
+import Router from "next/router";
 
+const fetcher = (url: string) => axios.get(url).then((res) => res.data);
 
 const OrdersPage = (props: any) => {
   const columns: GridColumns = [
@@ -48,12 +51,29 @@ const OrdersPage = (props: any) => {
     },
   ];
 
+  const { data, error } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_HOST}/orders`,
+    fetcher,
+    {
+      fallbackData: props.orders,
+      refreshInterval: 2,
+      onError: (error) => {
+        console.log(error);
+        if (error.response.status === 401 || error.response.status === 403) {
+          Router.push("/login");
+        }
+      },
+    }
+  );
+
   return (
-    <div style={{ height: 400, width: "100%" }} >
-      <Typography component="h1" variant="h4">My orders</Typography>
+    <div style={{ height: 400, width: "100%" }}>
+      <Typography component="h1" variant="h4">
+        Minhas ordens
+      </Typography>
       <DataGrid
         columns={columns}
-        rows={props.orders}
+        rows={data}
         rowsPerPageOptions={[5]}
         checkboxSelection
         disableSelectionOnClick
@@ -78,7 +98,7 @@ export const getServerSideProps: GetServerSideProps = withIronSessionSsr(
     }
 
     const { data } = await axios.get(
-      `http://localhost:3001/api/orders`,
+      `${process.env.NEXT_PUBLIC_API_HOST}/orders`,
       {
         headers: {
           cookie: context.req.headers.cookie as string,

@@ -11,11 +11,11 @@ const LoginPage = () => {
     const token = (document.querySelector("#token") as HTMLInputElement).value;
 
     try {
-      await axios.post(`http://localhost:3001/api/login`, { token });
+      await axios.post(`${process.env.NEXT_PUBLIC_API_HOST}/login`, { token });
       router.push("/orders");
     } catch (e) {
       console.error(e);
-      alert("Fail login!");
+      alert("Login deu zebra!!");
     }
   }
 
